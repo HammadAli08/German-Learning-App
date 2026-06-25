@@ -19,13 +19,15 @@ class WordPlayButton extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final isPlaying = ref.watch(wordTtsProvider);
+    final activeWord = ref.watch(wordTtsProvider);
+    final isThisWordPlaying = activeWord == word;
+    final isAnyWordPlaying = activeWord != null;
 
     return GestureDetector(
-      onTap: isPlaying ? null : () => ref.read(wordTtsProvider.notifier).speak(word),
+      onTap: isAnyWordPlaying ? null : () => ref.read(wordTtsProvider.notifier).speak(word),
       child: AnimatedSwitcher(
         duration: const Duration(milliseconds: 150),
-        child: isPlaying
+        child: isThisWordPlaying
             ? SizedBox(
                 key: const ValueKey('loading'),
                 width: size,
@@ -39,7 +41,7 @@ class WordPlayButton extends ConsumerWidget {
                 key: const ValueKey('play'),
                 Icons.play_circle_outline_rounded,
                 size: size,
-                color: color,
+                color: isAnyWordPlaying ? color.withValues(alpha: 0.35) : color,
               ),
       ),
     );

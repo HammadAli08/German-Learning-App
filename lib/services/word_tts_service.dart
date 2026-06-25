@@ -21,17 +21,15 @@ class WordTtsService {
 
   Box<String> get _box => Hive.box<String>(_boxName);
 
-  Future<void> _initTts() async {
-    if (_ttsInit) return;
+  Future<void> _initTts({double speed = 1.0}) async {
     final result = await _tts.setLanguage('de-DE');
     if (result != 1) await _tts.setLanguage('de');
-    await _tts.setSpeechRate(0.85);
+    await _tts.setSpeechRate(speed * 0.85);
     await _tts.setVolume(1.0);
-    _ttsInit = true;
   }
 
   /// Speak [word] using the best available method.
-  Future<void> speak(String word, {String? hfToken}) async {
+  Future<void> speak(String word, {String? hfToken, double speed = 1.0}) async {
     if (word.trim().isEmpty) return;
 
     // 1. Check Hive cache for a previously generated file
@@ -39,7 +37,7 @@ class WordTtsService {
     if (cached != null) {
       final file = File(cached);
       if (await file.exists()) {
-        await _playFile(cached);
+        await _playFile(cached, speed: speed);
         return;
       } else {
         // Stale cache entry — remove it
@@ -58,7 +56,7 @@ class WordTtsService {
         final file = File(path);
         await file.writeAsBytes(bytes);
         await _box.put(word, path);
-        await _playFile(path);
+        await _playFile(path, speed: speed);
         return;
       } catch (e) {
         debugPrint('[WordTts] HF API failed for "$word": $e — falling back to TTS');
@@ -66,15 +64,16 @@ class WordTtsService {
     }
 
     // 3. Device TTS fallback
-    await _initTts();
+    await _initTts(speed: speed);
     await _tts.awaitSpeakCompletion(true);
     await _tts.speak(word);
   }
 
-  Future<void> _playFile(String path) async {
+  Future<void> _playFile(String path, {double speed = 1.0}) async {
     try {
       await _player.stop();
       await _player.setAudioSource(AudioSource.file(path));
+      await _player.setSpeed(speed);
       await _player.play();
     } catch (e) {
       debugPrint('[WordTts] Playback failed: $e');
@@ -89,30 +88,32 @@ class WordTtsService {
 
 // ── Riverpod provider ─────────────────────────────────────────────────────────
 
-class WordTtsNotifier extends Notifier<bool> {
-  // state = isPlaying (true while audio in progress)
+class WordTtsNotifier extends Notifier<String?> {
+  // state = currently playing word, or null
   late final WordTtsService _service;
   static const _storage = FlutterSecureStorage();
 
   @override
-  bool build() {
+  String? build() {
     _service = WordTtsService();
     ref.onDispose(_service.dispose);
-    return false;
+    return null;
   }
 
   Future<void> speak(String word) async {
-    if (state) return; // already playing
-    state = true;
+    if (state != null) return; // already playing
+    state = word;
     try {
       final token = await _storage.read(key: 'hf_api_token') ?? '';
-      await _service.speak(word, hfToken: token.isEmpty ? null : token);
+      final settings = ref.read(settingsProvider).valueOrNull;
+      final speed = settings?.defaultPlaybackSpeed ?? 1.0;
+      await _service.speak(word, hfToken: token.isEmpty ? null : token, speed: speed);
     } finally {
-      state = false;
+      state = null;
     }
   }
 }
 
-final wordTtsProvider = NotifierProvider<WordTtsNotifier, bool>(
+final wordTtsProvider = NotifierProvider<WordTtsNotifier, String?>(
   WordTtsNotifier.new,
 );

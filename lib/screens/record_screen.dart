@@ -139,14 +139,9 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
                               overflow: TextOverflow.ellipsis,
                             ),
                             trailing: GestureDetector(
-                              onTap: () {
-                                final path = phrase.cachedAudioPath;
-                                if (path != null) {
-                                  ref
-                                      .read(pipelineProvider.notifier)
-                                      .playPhrasePath(path);
-                                }
-                              },
+                              onTap: () => ref
+                                  .read(pipelineProvider.notifier)
+                                  .playPhrase(phrase),
                               child: const Icon(
                                 Icons.play_circle_outline_rounded,
                                 color: AppColors.cobalt,

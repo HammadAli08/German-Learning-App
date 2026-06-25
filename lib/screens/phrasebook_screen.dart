@@ -158,19 +158,10 @@ class _PhraseRow extends ConsumerWidget {
           ),
         ),
         trailing: GestureDetector(
-          onTap: () {
-            final path = phrase.cachedAudioPath;
-            if (path != null) {
-              ref.read(pipelineProvider.notifier).playPhrasePath(path);
-            }
-          },
-          child: Icon(
-            phrase.cachedAudioPath != null
-                ? Icons.play_circle_outline_rounded
-                : Icons.play_circle_outline_rounded,
-            color: phrase.cachedAudioPath != null
-                ? AppColors.cobalt
-                : AppColors.inkMuted,
+          onTap: () => ref.read(pipelineProvider.notifier).playPhrase(phrase),
+          child: const Icon(
+            Icons.play_circle_outline_rounded,
+            color: AppColors.cobalt,
             size: 28,
           ),
         ),

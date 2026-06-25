@@ -312,7 +312,7 @@ class _ResultScreenState extends ConsumerState<ResultScreen>
                       icon: Icons.play_arrow_rounded,
                       onTap: () => ref
                           .read(pipelineProvider.notifier)
-                          .playResult(germanText: targetPhrase, speed: 1.0),
+                          .playResult(germanText: targetPhrase),
                     ),
                     const SizedBox(width: 12),
                     PillButton(

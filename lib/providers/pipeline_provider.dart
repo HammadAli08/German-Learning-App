@@ -1,5 +1,7 @@
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../data/models/phrase_model.dart';
 import '../data/models/translation_result.dart';
 import '../services/audio_service.dart';
 import '../services/hugging_face_service.dart';
@@ -161,14 +163,25 @@ class PipelineNotifier extends Notifier<PipelineState> {
   /// Speak [germanText] at [speed]. Called by the Play / Play Slowly buttons
   /// on the result screen, passing whichever variant (formal/informal) the
   /// user is currently viewing.
-  Future<void> playResult({String? germanText, double speed = 1.0}) async {
+  Future<void> playResult({String? germanText, double? speed}) async {
     final text = germanText ?? state.result?.germanInformal ?? '';
     if (text.isEmpty) return;
-    await _tts.speakAtSpeed(text, speed);
+    final settings = ref.read(settingsProvider).valueOrNull;
+    final playSpeed = speed ?? settings?.defaultPlaybackSpeed ?? 1.0;
+    await _tts.speakAtSpeed(text, playSpeed);
   }
 
   Future<void> playPhrasePath(String path, {double speed = 1.0}) async {
     await _audio.playFile(path, speed: speed);
+  }
+
+  Future<void> playPhrase(PhraseModel phrase, {double speed = 1.0}) async {
+    final path = phrase.cachedAudioPath;
+    if (!kIsWeb && path != null && await File(path).exists()) {
+      await _audio.playFile(path, speed: speed);
+    } else {
+      await _tts.speakAtSpeed(phrase.germanInformal, speed);
+    }
   }
 
   void reset() => state = const PipelineState();
