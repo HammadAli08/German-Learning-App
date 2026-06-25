@@ -23,6 +23,9 @@ dependencies:
   # Audio playback
   just_audio: ^0.9.40
 
+  # Device-native Text-to-Speech (German support, no API calls)
+  flutter_tts: ^4.2.3
+
   # Local storage
   hive_flutter: ^1.1.0
   hive: ^2.2.3

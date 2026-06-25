@@ -26,7 +26,13 @@ class HuggingFaceService {
   static const _whisperUrl = '$_baseUrl/hf-inference/models/openai/whisper-large-v3';
   static const _chatUrl = '$_baseUrl/v1/chat/completions';
   static const _helsinkiUrl = '$_baseUrl/hf-inference/models/Helsinki-NLP/opus-mt-en-de';
-  static const _ttsUrl = '$_baseUrl/hf-inference/models/suno/bark';
+
+  /// TTS models tried in order — suno/bark is NOT supported by hf-inference.
+  /// facebook/mms-tts-deu is the German MMS-TTS model supported by hf-inference.
+  static const _ttsUrls = [
+    '$_baseUrl/hf-inference/models/facebook/mms-tts-deu',
+    '$_baseUrl/hf-inference/models/facebook/mms-tts-eng', // English fallback
+  ];
 
   /// Ordered fallback chain — tries each model in sequence
   static const _llmModels = [
@@ -161,21 +167,35 @@ class HuggingFaceService {
   }
 
   // ──────────────────────────────────────────────────────────────────────────
-  // Stage 3: German Text → Speech (facebook/mms-tts-deu)
+  // Stage 3: German Text → Speech (facebook/mms-tts-deu with fallback)
   // ──────────────────────────────────────────────────────────────────────────
   Future<Uint8List> synthesizeSpeech(String germanText) async {
     const stage = 'Generating audio';
-    return _withRetry(stage, () async {
-      final response = await _dio.post<List<int>>(
-        _ttsUrl,
-        data: jsonEncode({'inputs': germanText}),
-        options: Options(
-          headers: {'Content-Type': 'application/json'},
-          responseType: ResponseType.bytes,
-        ),
-      );
-      return Uint8List.fromList(response.data!);
-    });
+    Exception? lastError;
+
+    for (final ttsUrl in _ttsUrls) {
+      try {
+        return await _withRetry(stage, () async {
+          final response = await _dio.post<List<int>>(
+            ttsUrl,
+            data: jsonEncode({'inputs': germanText}),
+            options: Options(
+              headers: {'Content-Type': 'application/json'},
+              responseType: ResponseType.bytes,
+            ),
+          );
+          return Uint8List.fromList(response.data!);
+        });
+      } catch (e) {
+        debugPrint('[TTS] Model $ttsUrl failed: $e — trying next TTS model');
+        lastError = e is Exception ? e : Exception(e.toString());
+      }
+    }
+
+    throw HFApiException(
+      stage: stage,
+      message: 'All TTS models failed. Last error: $lastError',
+    );
   }
 
   // ──────────────────────────────────────────────────────────────────────────

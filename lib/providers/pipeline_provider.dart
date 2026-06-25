@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/models/translation_result.dart';
 import '../services/audio_service.dart';
 import '../services/hugging_face_service.dart';
+import '../services/tts_service.dart';
 import 'settings_provider.dart';
 
 /// Represents which stage the pipeline is currently in.
@@ -59,10 +60,14 @@ class PipelineState {
 
 class PipelineNotifier extends Notifier<PipelineState> {
   final AudioService _audio = AudioService();
+  final TtsService _tts = TtsService();
 
   @override
   PipelineState build() {
-    ref.onDispose(() async => await _audio.dispose());
+    ref.onDispose(() async {
+      await _audio.dispose();
+      _tts.dispose();
+    });
     return const PipelineState();
   }
 
@@ -126,19 +131,16 @@ class PipelineNotifier extends Notifier<PipelineState> {
         result = await hf.translateWithTutor(transcript);
       }
 
-      // Stage 3: TTS
+      // Stage 3: TTS — device-native, no API call
       state = state.copyWith(stage: PipelineStage.generatingAudio);
       final targetText = (settings?.formalDefault ?? false)
           ? result.germanFormal
           : result.germanInformal;
 
-      final Uint8List ttsBytes = await hf.synthesizeSpeech(targetText);
-      final audioPath = await _audio.saveAudioBytes(ttsBytes);
-      result = result.copyWith(audioFilePath: audioPath, audioBytes: ttsBytes);
+      final speed = settings?.defaultPlaybackSpeed ?? 1.0;
+      await _tts.speakAtSpeed(targetText, speed);
 
       state = PipelineState(stage: PipelineStage.done, result: result, transcript: transcript);
-      final speed = settings?.defaultPlaybackSpeed ?? 1.0;
-      await playResult(speed: speed);
     } on HFApiException catch (e) {
       state = state.copyWith(
         stage: PipelineStage.error,
@@ -154,13 +156,15 @@ class PipelineNotifier extends Notifier<PipelineState> {
   }
 
   // ──────────────────────────────────────────────────────────────────────────
-  // Audio playback
+  // Audio playback — uses device TTS, no audio file needed
   // ──────────────────────────────────────────────────────────────────────────
-  Future<void> playResult({double speed = 1.0}) async {
-    final path = state.result?.audioFilePath;
-    if (path != null) {
-      await _audio.playFile(path, speed: speed);
-    }
+  /// Speak [germanText] at [speed]. Called by the Play / Play Slowly buttons
+  /// on the result screen, passing whichever variant (formal/informal) the
+  /// user is currently viewing.
+  Future<void> playResult({String? germanText, double speed = 1.0}) async {
+    final text = germanText ?? state.result?.germanInformal ?? '';
+    if (text.isEmpty) return;
+    await _tts.speakAtSpeed(text, speed);
   }
 
   Future<void> playPhrasePath(String path, {double speed = 1.0}) async {

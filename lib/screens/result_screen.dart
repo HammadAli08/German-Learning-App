@@ -310,7 +310,7 @@ class _ResultScreenState extends ConsumerState<ResultScreen>
                       icon: Icons.play_arrow_rounded,
                       onTap: () => ref
                           .read(pipelineProvider.notifier)
-                          .playResult(speed: 1.0),
+                          .playResult(germanText: targetPhrase, speed: 1.0),
                     ),
                     const SizedBox(width: 12),
                     PillButton(
@@ -318,7 +318,7 @@ class _ResultScreenState extends ConsumerState<ResultScreen>
                       icon: Icons.slow_motion_video_rounded,
                       onTap: () => ref
                           .read(pipelineProvider.notifier)
-                          .playResult(speed: 0.5),
+                          .playResult(germanText: targetPhrase, speed: 0.5),
                     ),
                   ],
                 ),
