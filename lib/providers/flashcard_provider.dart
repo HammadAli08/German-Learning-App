@@ -1,0 +1,69 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hive_flutter/hive_flutter.dart';
+import '../data/models/phrase_model.dart';
+import '../services/sr_service.dart';
+
+const _phrasesBox = 'phrases';
+
+class FlashcardState {
+  final List<PhraseModel> dueCards;
+  final int currentIndex;
+  final bool showAnswer;
+
+  const FlashcardState({
+    this.dueCards = const [],
+    this.currentIndex = 0,
+    this.showAnswer = false,
+  });
+
+  PhraseModel? get currentCard =>
+      dueCards.isEmpty ? null : dueCards[currentIndex];
+
+  bool get hasCards => dueCards.isNotEmpty;
+  bool get isComplete => currentIndex >= dueCards.length;
+
+  FlashcardState copyWith({
+    List<PhraseModel>? dueCards,
+    int? currentIndex,
+    bool? showAnswer,
+  }) =>
+      FlashcardState(
+        dueCards: dueCards ?? this.dueCards,
+        currentIndex: currentIndex ?? this.currentIndex,
+        showAnswer: showAnswer ?? this.showAnswer,
+      );
+}
+
+class FlashcardNotifier extends Notifier<FlashcardState> {
+  final _sr = SRService();
+
+  Box<PhraseModel> get _box => Hive.box<PhraseModel>(_phrasesBox);
+
+  @override
+  FlashcardState build() {
+    final due = _box.values.where((p) => p.isDue).toList()
+      ..sort((a, b) => a.lastReviewed.compareTo(b.lastReviewed));
+    return FlashcardState(dueCards: due);
+  }
+
+  void showAnswer() {
+    state = state.copyWith(showAnswer: true);
+  }
+
+  /// [quality]: 0 = Hard, 1 = Medium, 2 = Easy
+  void rate(int quality) {
+    final card = state.currentCard;
+    if (card == null) return;
+    _sr.applyRating(card, quality);
+    state = state.copyWith(
+      currentIndex: state.currentIndex + 1,
+      showAnswer: false,
+    );
+  }
+
+  void reset() => state = build();
+}
+
+final flashcardProvider = NotifierProvider<FlashcardNotifier, FlashcardState>(
+  FlashcardNotifier.new,
+);
