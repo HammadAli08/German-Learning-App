@@ -2,12 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/theme/app_colors.dart';
 import '../core/theme/app_text_styles.dart';
+import '../data/foundations_data.dart';
 import '../providers/pipeline_provider.dart';
 import '../providers/phrasebook_provider.dart';
 import '../providers/settings_provider.dart';
+import '../providers/foundations_provider.dart';
 import '../widgets/record_button.dart';
 import '../widgets/hairline_divider.dart';
+import '../widgets/word_play_button.dart';
 import 'result_screen.dart';
+import 'lesson_detail_screen.dart';
 
 class RecordScreen extends ConsumerStatefulWidget {
   const RecordScreen({super.key});
@@ -20,9 +24,14 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
   @override
   Widget build(BuildContext context) {
     final pipeline = ref.watch(pipelineProvider);
-    final recentPhrases = ref.watch(phrasebookProvider.select((p) => p.take(5).toList()));
+    final recentPhrases =
+        ref.watch(phrasebookProvider.select((p) => p.take(5).toList()));
     final settings = ref.watch(settingsProvider).valueOrNull;
     final isRecording = pipeline.stage == PipelineStage.recording;
+    // Watch foundations progress so the nudge updates when lessons are completed
+    ref.watch(foundationsProvider);
+    final nextFoundationsLesson =
+        ref.read(foundationsProvider.notifier).nextLesson;
 
     // Navigate to result when done
     ref.listen(pipelineProvider, (prev, next) {
@@ -99,12 +108,14 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
                   children: [
                     Padding(
                       padding: const EdgeInsets.fromLTRB(24, 20, 24, 12),
-                      child: Text('Recent', style: AppTextStyles.screenTitle(size: 16)),
+                      child:
+                          Text('Recent', style: AppTextStyles.screenTitle(size: 16)),
                     ),
                     Expanded(
                       child: ListView.separated(
                         itemCount: recentPhrases.length,
-                        separatorBuilder: (_, __) => const HairlineDivider(indent: 24),
+                        separatorBuilder: (_, __) =>
+                            const HairlineDivider(indent: 24),
                         itemBuilder: (context, i) {
                           final phrase = recentPhrases[i];
                           return ListTile(
@@ -149,6 +160,12 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
                   ],
                 ),
               ),
+            ],
+
+            // ── Feature 5: Foundations nudge card ─────────────────────────
+            if (nextFoundationsLesson != null) ...[
+              const HairlineDivider(),
+              _FoundationsNudgeCard(lesson: nextFoundationsLesson),
             ],
 
             const SizedBox(height: 16),
@@ -227,7 +244,62 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
   void _showTokenWarning(BuildContext context) {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('Add your Hugging Face token in Settings to get started.'),
+        content:
+            Text('Add your Hugging Face token in Settings to get started.'),
+      ),
+    );
+  }
+}
+
+// ── Feature 5: Foundations nudge card ────────────────────────────────────────
+
+class _FoundationsNudgeCard extends StatelessWidget {
+  final FoundationsLesson lesson;
+
+  const _FoundationsNudgeCard({required this.lesson});
+
+  @override
+  Widget build(BuildContext context) {
+    final previewWord =
+        lesson.items.isNotEmpty ? lesson.items.first.de : '';
+
+    return GestureDetector(
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => LessonDetailScreen(lesson: lesson),
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(24, 12, 24, 0),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            border: Border.all(color: AppColors.hairline),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.school_outlined,
+                  color: AppColors.cobalt, size: 18),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Next: ${lesson.title}',
+                  style: AppTextStyles.body(size: 13),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              if (previewWord.isNotEmpty) ...[
+                const SizedBox(width: 8),
+                WordPlayButton(word: previewWord, size: 18),
+              ],
+              const SizedBox(width: 4),
+              const Icon(Icons.chevron_right_rounded,
+                  color: AppColors.inkMuted, size: 18),
+            ],
+          ),
+        ),
       ),
     );
   }

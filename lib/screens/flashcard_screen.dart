@@ -5,6 +5,7 @@ import '../core/theme/app_text_styles.dart';
 import '../providers/flashcard_provider.dart';
 import '../widgets/gloss_strip.dart';
 import '../widgets/hairline_divider.dart';
+import '../widgets/word_play_button.dart';
 
 class FlashcardScreen extends ConsumerWidget {
   const FlashcardScreen({super.key});
@@ -19,6 +20,7 @@ class FlashcardScreen extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // ── Header ──────────────────────────────────────────────────────
             Padding(
               padding: const EdgeInsets.fromLTRB(24, 32, 24, 0),
               child: Row(
@@ -33,9 +35,16 @@ class FlashcardScreen extends ConsumerWidget {
                 ],
               ),
             ),
+
+            // ── Filter toggle (Feature 4) ────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+              child: _FilterBar(current: state.filter),
+            ),
+
             Expanded(
               child: state.isComplete || !state.hasCards
-                  ? _buildComplete(ref, state.dueCards.isEmpty)
+                  ? _buildComplete(ref, state)
                   : _buildCard(ref, state),
             ),
           ],
@@ -44,7 +53,8 @@ class FlashcardScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildComplete(WidgetRef ref, bool noDueCards) {
+  Widget _buildComplete(WidgetRef ref, FlashcardState state) {
+    final noDueCards = state.dueCards.isEmpty;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
@@ -59,7 +69,7 @@ class FlashcardScreen extends ConsumerWidget {
             const SizedBox(height: 16),
             Text(
               noDueCards
-                  ? 'No cards due.\nSave phrases to start reviewing!'
+                  ? 'No cards due.\nSave phrases or Foundations words to start reviewing!'
                   : 'All done for now!\nGreat review session.',
               style: AppTextStyles.body(size: 15, color: AppColors.ink),
               textAlign: TextAlign.center,
@@ -71,7 +81,8 @@ class FlashcardScreen extends ConsumerWidget {
                 style: OutlinedButton.styleFrom(
                   foregroundColor: AppColors.cobalt,
                   side: const BorderSide(color: AppColors.cobalt),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
                   padding: const EdgeInsets.symmetric(vertical: 14),
                 ),
                 child: Text('Review again', style: AppTextStyles.bodyMedium(size: 14)),
@@ -108,12 +119,39 @@ class FlashcardScreen extends ConsumerWidget {
                     const SizedBox(height: 32),
                     const HairlineDivider(),
                     const SizedBox(height: 32),
-                    Text(card.germanInformal,
-                        style: AppTextStyles.germanPhrase(size: 26),
-                        textAlign: TextAlign.center),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Flexible(
+                          child: Text(card.germanInformal,
+                              style: AppTextStyles.germanPhrase(size: 26),
+                              textAlign: TextAlign.center),
+                        ),
+                        const SizedBox(width: 8),
+                        WordPlayButton(word: card.germanInformal, size: 22),
+                      ],
+                    ),
                     if (card.wordGloss.isNotEmpty) ...[
                       const SizedBox(height: 20),
-                      GlossStrip(glossItems: card.wordGloss),
+                      GlossStrip(
+                        glossItems: card.wordGloss,
+                        showPlay: true,
+                        showRuleMarkers: true,
+                      ),
+                    ],
+                    if (card.category == 'foundations') ...[
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: AppColors.hairline),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text('Foundations',
+                            style: AppTextStyles.label(
+                                size: 11, color: AppColors.inkMuted)),
+                      ),
                     ],
                   ],
                 ],
@@ -125,27 +163,42 @@ class FlashcardScreen extends ConsumerWidget {
             SizedBox(
               width: double.infinity,
               child: OutlinedButton(
-                onPressed: () => ref.read(flashcardProvider.notifier).showAnswer(),
+                onPressed: () =>
+                    ref.read(flashcardProvider.notifier).showAnswer(),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: AppColors.cobalt,
                   side: const BorderSide(color: AppColors.cobalt),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
                   padding: const EdgeInsets.symmetric(vertical: 14),
                 ),
-                child: Text('Show answer', style: AppTextStyles.bodyMedium(size: 15)),
+                child: Text('Show answer',
+                    style: AppTextStyles.bodyMedium(size: 15)),
               ),
             )
           else
             Row(
               children: [
-                Expanded(child: _RatingButton(label: 'Hard', color: AppColors.brick,
-                    onTap: () => ref.read(flashcardProvider.notifier).rate(0))),
+                Expanded(
+                    child: _RatingButton(
+                        label: 'Hard',
+                        color: AppColors.brick,
+                        onTap: () =>
+                            ref.read(flashcardProvider.notifier).rate(0))),
                 const SizedBox(width: 12),
-                Expanded(child: _RatingButton(label: 'Medium', color: AppColors.mustard,
-                    onTap: () => ref.read(flashcardProvider.notifier).rate(1))),
+                Expanded(
+                    child: _RatingButton(
+                        label: 'Medium',
+                        color: AppColors.mustard,
+                        onTap: () =>
+                            ref.read(flashcardProvider.notifier).rate(1))),
                 const SizedBox(width: 12),
-                Expanded(child: _RatingButton(label: 'Easy', color: AppColors.teal,
-                    onTap: () => ref.read(flashcardProvider.notifier).rate(2))),
+                Expanded(
+                    child: _RatingButton(
+                        label: 'Easy',
+                        color: AppColors.teal,
+                        onTap: () =>
+                            ref.read(flashcardProvider.notifier).rate(2))),
               ],
             ),
         ],
@@ -154,12 +207,67 @@ class FlashcardScreen extends ConsumerWidget {
   }
 }
 
+// ── Filter bar ───────────────────────────────────────────────────────────────
+
+class _FilterBar extends ConsumerWidget {
+  final FlashcardFilter current;
+  const _FilterBar({required this.current});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    const options = [
+      (FlashcardFilter.all, 'All'),
+      (FlashcardFilter.personal, 'Personal'),
+      (FlashcardFilter.foundations, 'Foundations'),
+    ];
+    return Row(
+      children: [
+        for (int i = 0; i < options.length; i++) ...[
+          if (i > 0) const SizedBox(width: 8),
+          GestureDetector(
+            onTap: () => ref
+                .read(flashcardProvider.notifier)
+                .setFilter(options[i].$1),
+            child: Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: current == options[i].$1
+                    ? AppColors.cobalt
+                    : Colors.transparent,
+                border: Border.all(
+                  color: current == options[i].$1
+                      ? AppColors.cobalt
+                      : AppColors.hairline,
+                ),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Text(
+                options[i].$2,
+                style: AppTextStyles.label(
+                  size: 12,
+                  color: current == options[i].$1
+                      ? AppColors.paper
+                      : AppColors.inkMuted,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+// ── Rating button ────────────────────────────────────────────────────────────
+
 class _RatingButton extends StatelessWidget {
   final String label;
   final Color color;
   final VoidCallback onTap;
 
-  const _RatingButton({required this.label, required this.color, required this.onTap});
+  const _RatingButton(
+      {required this.label, required this.color, required this.onTap});
 
   @override
   Widget build(BuildContext context) {

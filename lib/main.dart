@@ -24,6 +24,10 @@ void main() async {
 
   await Hive.openBox<PhraseModel>('phrases');
   await Hive.openBox('settings');
+  // Feature 2: word-level TTS cache (word → file path)
+  await Hive.openBox<String>('word_audio');
+  // Feature 3: foundations lesson progress (lesson key → completed bool)
+  await Hive.openBox<bool>('foundations_progress');
 
   // Clean old audio files (non-blocking fire-and-forget)
   AudioService.cleanOldAudioFiles();

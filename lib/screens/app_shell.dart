@@ -5,6 +5,7 @@ import '../core/theme/app_text_styles.dart';
 import 'record_screen.dart';
 import 'phrasebook_screen.dart';
 import 'flashcard_screen.dart';
+import 'foundations_screen.dart';
 import 'settings_screen.dart';
 
 class AppShell extends ConsumerStatefulWidget {
@@ -21,6 +22,7 @@ class _AppShellState extends ConsumerState<AppShell> {
     RecordScreen(),
     PhrasebookScreen(),
     FlashcardScreen(),
+    FoundationsScreen(),
     SettingsScreen(),
   ];
 
@@ -43,8 +45,10 @@ class _AppShellState extends ConsumerState<AppShell> {
             backgroundColor: AppColors.paper,
             selectedItemColor: AppColors.cobalt,
             unselectedItemColor: AppColors.inkMuted,
-            selectedLabelStyle: AppTextStyles.label(size: 11, color: AppColors.cobalt),
-            unselectedLabelStyle: AppTextStyles.label(size: 11, color: AppColors.inkMuted),
+            selectedLabelStyle:
+                AppTextStyles.label(size: 11, color: AppColors.cobalt),
+            unselectedLabelStyle:
+                AppTextStyles.label(size: 11, color: AppColors.inkMuted),
             elevation: 0,
             type: BottomNavigationBarType.fixed,
             items: const [
@@ -62,6 +66,11 @@ class _AppShellState extends ConsumerState<AppShell> {
                 icon: Icon(Icons.style_outlined),
                 activeIcon: Icon(Icons.style_rounded),
                 label: 'Review',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.school_outlined),
+                activeIcon: Icon(Icons.school_rounded),
+                label: 'Learn',
               ),
               BottomNavigationBarItem(
                 icon: Icon(Icons.settings_outlined),

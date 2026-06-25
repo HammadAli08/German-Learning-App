@@ -2,16 +2,23 @@ import 'package:flutter/material.dart';
 import '../core/theme/app_colors.dart';
 import '../core/theme/app_text_styles.dart';
 import '../data/models/word_gloss.dart';
+import '../data/pronunciation_rules.dart';
+import 'word_play_button.dart';
 
 /// The signature element: a horizontal row of gloss tiles, one per German word.
 /// Each tile shows the German word on top and its English meaning below.
 /// The tile whose index matches [highlightIndex] gets a mustard border.
+/// If [showPlay] is true, each tile gets a small play icon.
+/// If [showRuleMarkers] is true, words matching pronunciation rules show a marker.
 class GlossStrip extends StatelessWidget {
   final List<WordGloss> glossItems;
+
   /// Index of the word that the grammar note references (gets mustard border).
   final int? highlightIndex;
   final bool animate;
   final int startAnimationDelayMs;
+  final bool showPlay;
+  final bool showRuleMarkers;
 
   const GlossStrip({
     super.key,
@@ -19,6 +26,8 @@ class GlossStrip extends StatelessWidget {
     this.highlightIndex,
     this.animate = false,
     this.startAnimationDelayMs = 0,
+    this.showPlay = false,
+    this.showRuleMarkers = false,
   });
 
   @override
@@ -35,11 +44,15 @@ class GlossStrip extends StatelessWidget {
                 item: glossItems[i],
                 isHighlighted: highlightIndex == i,
                 delayMs: startAnimationDelayMs + (i * 60),
+                showPlay: showPlay,
+                showRuleMarkers: showRuleMarkers,
               )
             else
               GlossTile(
                 item: glossItems[i],
                 isHighlighted: highlightIndex == i,
+                showPlay: showPlay,
+                showRuleMarkers: showRuleMarkers,
               ),
             if (i < glossItems.length - 1) const SizedBox(width: 8),
           ],
@@ -53,30 +66,141 @@ class GlossStrip extends StatelessWidget {
 class GlossTile extends StatelessWidget {
   final WordGloss item;
   final bool isHighlighted;
+  final bool showPlay;
+  final bool showRuleMarkers;
 
-  const GlossTile({super.key, required this.item, this.isHighlighted = false});
+  const GlossTile({
+    super.key,
+    required this.item,
+    this.isHighlighted = false,
+    this.showPlay = false,
+    this.showRuleMarkers = false,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(
-        color: isHighlighted
-            ? AppColors.mustard.withValues(alpha: 0.08)
-            : Colors.transparent,
-        border: Border.all(
-          color: isHighlighted ? AppColors.mustard : AppColors.inkMuted.withValues(alpha: 0.35),
-          width: 1,
+    final rules = showRuleMarkers ? matchingRules(item.de) : <PronunciationRule>[];
+
+    return GestureDetector(
+      onTap: rules.isEmpty || !showRuleMarkers
+          ? null
+          : () => _showRules(context, rules),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: isHighlighted
+              ? AppColors.mustard.withValues(alpha: 0.08)
+              : Colors.transparent,
+          border: Border.all(
+            color: isHighlighted
+                ? AppColors.mustard
+                : AppColors.inkMuted.withValues(alpha: 0.35),
+            width: 1,
+          ),
+          borderRadius: BorderRadius.circular(4),
         ),
-        borderRadius: BorderRadius.circular(4),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            // German word row with optional play button and rule marker
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(item.de, style: AppTextStyles.glossDe()),
+                if (showRuleMarkers && rules.isNotEmpty) ...[
+                  const SizedBox(width: 3),
+                  Container(
+                    width: 5,
+                    height: 5,
+                    decoration: const BoxDecoration(
+                      color: AppColors.mustard,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ],
+                if (showPlay) ...[
+                  const SizedBox(width: 4),
+                  WordPlayButton(word: item.de, size: 14),
+                ],
+              ],
+            ),
+            const SizedBox(height: 2),
+            Text(item.en, style: AppTextStyles.glossEn()),
+          ],
+        ),
       ),
+    );
+  }
+
+  void _showRules(BuildContext context, List<PronunciationRule> rules) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: AppColors.paper,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        side: BorderSide(color: AppColors.hairline),
+      ),
+      builder: (_) => _RulesSheet(word: item.de, rules: rules),
+    );
+  }
+}
+
+class _RulesSheet extends StatelessWidget {
+  final String word;
+  final List<PronunciationRule> rules;
+
+  const _RulesSheet({required this.word, required this.rules});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 20, 24, 40),
       child: Column(
         mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(item.de, style: AppTextStyles.glossDe()),
-          const SizedBox(height: 2),
-          Text(item.en, style: AppTextStyles.glossEn()),
+          Row(
+            children: [
+              Container(
+                width: 4,
+                height: 4,
+                decoration: const BoxDecoration(
+                  color: AppColors.mustard,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text('Pronunciation in "$word"',
+                  style: AppTextStyles.bodyMedium(size: 15)),
+            ],
+          ),
+          const SizedBox(height: 16),
+          ...rules.map((r) => Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: AppColors.mustard.withValues(alpha: 0.12),
+                        border: Border.all(
+                            color: AppColors.mustard.withValues(alpha: 0.5)),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(r.pattern,
+                          style: AppTextStyles.glossDe(size: 12)
+                              .copyWith(color: AppColors.ink)),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(r.explanation,
+                        style: AppTextStyles.body(size: 13,
+                            color: AppColors.inkMuted)),
+                  ],
+                ),
+              )),
         ],
       ),
     );
@@ -87,11 +211,15 @@ class _AnimatedGlossTile extends StatefulWidget {
   final WordGloss item;
   final bool isHighlighted;
   final int delayMs;
+  final bool showPlay;
+  final bool showRuleMarkers;
 
   const _AnimatedGlossTile({
     required this.item,
     required this.isHighlighted,
     required this.delayMs,
+    required this.showPlay,
+    required this.showRuleMarkers,
   });
 
   @override
@@ -139,7 +267,12 @@ class _AnimatedGlossTileState extends State<_AnimatedGlossTile>
       opacity: _opacity,
       child: SlideTransition(
         position: _slide,
-        child: GlossTile(item: widget.item, isHighlighted: widget.isHighlighted),
+        child: GlossTile(
+          item: widget.item,
+          isHighlighted: widget.isHighlighted,
+          showPlay: widget.showPlay,
+          showRuleMarkers: widget.showRuleMarkers,
+        ),
       ),
     );
   }

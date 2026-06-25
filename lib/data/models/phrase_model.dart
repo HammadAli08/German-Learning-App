@@ -41,6 +41,10 @@ class PhraseModel extends HiveObject {
   @HiveField(10)
   String? cachedAudioPath;
 
+  /// 'personal' (recorded by user) or 'foundations' (from Foundations lessons)
+  @HiveField(11)
+  String category;
+
   PhraseModel({
     required this.englishText,
     required this.germanInformal,
@@ -53,6 +57,7 @@ class PhraseModel extends HiveObject {
     this.intervalDays = 1,
     this.easeFactor = 2.5,
     this.cachedAudioPath,
+    this.category = 'personal',
   });
 
   /// Whether this card is due for review today

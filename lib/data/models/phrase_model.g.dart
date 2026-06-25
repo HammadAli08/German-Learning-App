@@ -1,4 +1,6 @@
 // GENERATED CODE - DO NOT MODIFY BY HAND
+// Manually extended to include HiveField(11) category. If you re-run
+// build_runner, the generated file will need this field added back.
 
 part of 'phrase_model.dart';
 
@@ -28,13 +30,15 @@ class PhraseModelAdapter extends TypeAdapter<PhraseModel> {
       intervalDays: fields[8] as int,
       easeFactor: fields[9] as double,
       cachedAudioPath: fields[10] as String?,
+      // Field 11 may be absent in data written by older app versions → default 'personal'
+      category: fields[11] as String? ?? 'personal',
     );
   }
 
   @override
   void write(BinaryWriter writer, PhraseModel obj) {
     writer
-      ..writeByte(11)
+      ..writeByte(12)
       ..writeByte(0)
       ..write(obj.englishText)
       ..writeByte(1)
@@ -56,7 +60,9 @@ class PhraseModelAdapter extends TypeAdapter<PhraseModel> {
       ..writeByte(9)
       ..write(obj.easeFactor)
       ..writeByte(10)
-      ..write(obj.cachedAudioPath);
+      ..write(obj.cachedAudioPath)
+      ..writeByte(11)
+      ..write(obj.category);
   }
 
   @override

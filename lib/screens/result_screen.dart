@@ -266,6 +266,8 @@ class _ResultScreenState extends ConsumerState<ResultScreen>
               highlightIndex: highlightIdx,
               animate: true,
               startAnimationDelayMs: 650,
+              showPlay: true,
+              showRuleMarkers: true,
             ),
 
           if (hasGloss) const SizedBox(height: 24),
