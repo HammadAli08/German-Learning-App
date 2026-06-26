@@ -55,98 +55,73 @@ class HuggingFaceService {
   // Stage 1: Speech → Text (Whisper)
   // ──────────────────────────────────────────────────────────────────────────
 
-  /// OpenAI-compatible transcription endpoint — supports `language` parameter
-  /// to force German transcription regardless of the speaker's accent.
-  static const _whisperTranscriptionUrl = '$_baseUrl/v1/audio/transcriptions';
-
-  /// Detects non-Latin script (Arabic, Devanagari, etc.) that indicates
-  /// Whisper misidentified the language.
+  /// Detects non-Latin script (Arabic/Urdu, Devanagari/Hindi, etc.) that
+  /// indicates Whisper misidentified the spoken language.
   static final _nonLatinPattern = RegExp(
-    r'[\u0600-\u06FF'   // Arabic (Urdu uses this)
-    r'\u0900-\u097F'    // Devanagari (Hindi)
-    r'\u0980-\u09FF'    // Bengali
-    r'\u0A00-\u0A7F'    // Gurmukhi
-    r'\u4E00-\u9FFF'    // CJK
-    r'\u3040-\u309F'    // Hiragana
-    r'\u30A0-\u30FF'    // Katakana
-    r'\uAC00-\uD7AF]', // Korean
+    '['
+    '\u0600-\u06FF'   // Arabic script (Urdu)
+    '\u0900-\u097F'   // Devanagari (Hindi)
+    '\u0980-\u09FF'   // Bengali
+    '\u0A00-\u0A7F'   // Gurmukhi
+    '\u4E00-\u9FFF'   // CJK
+    '\u3040-\u309F'   // Hiragana
+    '\u30A0-\u30FF'   // Katakana
+    '\uAC00-\uD7AF'   // Korean
+    ']',
   );
+
+  /// Maximum number of automatic retries when Whisper returns non-German text.
+  static const _maxTranscriptionRetries = 3;
 
   Future<String> transcribeAudio(Uint8List bytes) async {
     const stage = 'Transcribing';
 
-    // ── Attempt 1: OpenAI-compatible endpoint with language=de ────────────
-    try {
-      final transcript = await _transcribeWithLanguage(bytes, stage);
-      if (!_nonLatinPattern.hasMatch(transcript)) {
-        return transcript;
-      }
-      debugPrint('[$stage] Non-Latin script detected in transcript, retrying...');
-    } catch (e) {
-      debugPrint('[$stage] OpenAI-compat endpoint failed: $e — falling back');
-    }
-
-    // ── Attempt 2: Legacy raw-bytes endpoint (fallback) ──────────────────
-    try {
-      final transcript = await _transcribeLegacy(bytes, stage);
-      if (!_nonLatinPattern.hasMatch(transcript)) {
-        return transcript;
-      }
-      // Both attempts returned non-German script — return with warning
-      debugPrint('[$stage] Both attempts returned non-Latin script');
-      return transcript;
-    } catch (e) {
-      throw HFApiException(
-        stage: stage,
-        message: 'Could not transcribe audio. Please try again.',
-      );
-    }
-  }
-
-  /// Uses the OpenAI-compatible `/v1/audio/transcriptions` endpoint
-  /// which accepts a `language` parameter to force German.
-  Future<String> _transcribeWithLanguage(Uint8List bytes, String stage) async {
-    return _withRetry(stage, () async {
-      final formData = FormData.fromMap({
-        'file': MultipartFile.fromBytes(bytes, filename: 'audio.wav'),
-        'model': 'openai/whisper-large-v3',
-        'language': 'de',
-        'response_format': 'json',
+    // Whisper's language detection is non-deterministic on the serverless API.
+    // The HF serverless endpoint ignores language parameters entirely.
+    // Our only option: retry and check the output for non-Latin script.
+    for (int attempt = 0; attempt < _maxTranscriptionRetries; attempt++) {
+      final transcript = await _withRetry(stage, () async {
+        final response = await _dio.post<dynamic>(
+          _whisperUrl,
+          data: bytes,
+          options: Options(
+            headers: {'Content-Type': 'audio/wav'},
+            responseType: ResponseType.json,
+          ),
+        );
+        final data = response.data;
+        if (data is Map && data.containsKey('text')) {
+          return data['text'] as String;
+        }
+        throw HFApiException(
+          stage: stage,
+          message: 'Unexpected Whisper response: $data',
+        );
       });
 
-      final response = await _dio.post<dynamic>(
-        _whisperTranscriptionUrl,
-        data: formData,
-        options: Options(
-          headers: {'Content-Type': 'multipart/form-data'},
-          responseType: ResponseType.json,
-        ),
-      );
-      final data = response.data;
-      if (data is Map && data.containsKey('text')) {
-        return data['text'] as String;
+      // Check if the transcript is in Latin script (German/English)
+      if (!_nonLatinPattern.hasMatch(transcript)) {
+        return transcript; // Good — this is German/Latin text
       }
-      throw HFApiException(stage: stage, message: 'Unexpected Whisper response: $data');
-    });
-  }
 
-  /// Legacy raw-bytes Whisper endpoint (no language forcing).
-  Future<String> _transcribeLegacy(Uint8List bytes, String stage) async {
-    return _withRetry(stage, () async {
-      final response = await _dio.post<dynamic>(
-        _whisperUrl,
-        data: bytes,
-        options: Options(
-          headers: {'Content-Type': 'audio/wav'},
-          responseType: ResponseType.json,
-        ),
+      debugPrint(
+        '[$stage] Attempt ${attempt + 1}: non-Latin script detected '
+        '("${transcript.substring(0, transcript.length.clamp(0, 40))}…"), '
+        'retrying...',
       );
-      final data = response.data;
-      if (data is Map && data.containsKey('text')) {
-        return data['text'] as String;
+
+      // Brief pause before retry to get a different decoding path
+      if (attempt < _maxTranscriptionRetries - 1) {
+        await Future.delayed(const Duration(milliseconds: 500));
       }
-      throw HFApiException(stage: stage, message: 'Unexpected Whisper response: $data');
-    });
+    }
+
+    // All retries returned non-German script
+    throw HFApiException(
+      stage: stage,
+      message: 'The speech was not recognized as German. '
+          'Please speak more slowly and clearly, and try again.',
+    );
   }
 
   // ──────────────────────────────────────────────────────────────────────────
