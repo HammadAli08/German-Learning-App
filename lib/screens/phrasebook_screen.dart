@@ -6,6 +6,7 @@ import '../data/models/phrase_model.dart';
 import '../providers/phrasebook_provider.dart';
 import '../providers/pipeline_provider.dart';
 import '../widgets/hairline_divider.dart';
+import 'result_screen.dart';
 
 class PhrasebookScreen extends ConsumerStatefulWidget {
   const PhrasebookScreen({super.key});
@@ -137,6 +138,13 @@ class _PhraseRow extends ConsumerWidget {
         ref.read(phrasebookProvider.notifier).deletePhrase(phrase);
       },
       child: ListTile(
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => ResultScreen(phrase: phrase),
+            ),
+          );
+        },
         contentPadding:
             const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
         title: Text(
@@ -158,7 +166,13 @@ class _PhraseRow extends ConsumerWidget {
           ),
         ),
         trailing: GestureDetector(
-          onTap: () => ref.read(pipelineProvider.notifier).playPhrase(phrase),
+          onTap: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => ResultScreen(phrase: phrase),
+              ),
+            );
+          },
           child: const Icon(
             Icons.play_circle_outline_rounded,
             color: AppColors.cobalt,

@@ -119,6 +119,13 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
                         itemBuilder: (context, i) {
                           final phrase = recentPhrases[i];
                           return ListTile(
+                            onTap: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => ResultScreen(phrase: phrase),
+                                ),
+                              );
+                            },
                             contentPadding: const EdgeInsets.symmetric(
                               horizontal: 24,
                               vertical: 4,
@@ -139,9 +146,13 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
                               overflow: TextOverflow.ellipsis,
                             ),
                             trailing: GestureDetector(
-                              onTap: () => ref
-                                  .read(pipelineProvider.notifier)
-                                  .playPhrase(phrase),
+                              onTap: () {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) => ResultScreen(phrase: phrase),
+                                  ),
+                                );
+                              },
                               child: const Icon(
                                 Icons.play_circle_outline_rounded,
                                 color: AppColors.cobalt,

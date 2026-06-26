@@ -10,10 +10,12 @@ import '../widgets/gloss_strip.dart';
 import '../widgets/hairline_divider.dart';
 import '../widgets/pill_button.dart';
 import '../widgets/stage_label.dart';
+import '../data/models/phrase_model.dart';
 import 'practice_screen.dart';
 
 class ResultScreen extends ConsumerStatefulWidget {
-  const ResultScreen({super.key});
+  final PhraseModel? phrase;
+  const ResultScreen({super.key, this.phrase});
 
   @override
   ConsumerState<ResultScreen> createState() => _ResultScreenState();
@@ -23,6 +25,7 @@ class _ResultScreenState extends ConsumerState<ResultScreen>
     with TickerProviderStateMixin {
   bool _useFormal = false;
   bool _saved = false;
+  TranslationResult? _customResult;
 
   // Animation controllers for the reveal sequence
   late AnimationController _transcriptCtrl;
@@ -41,6 +44,19 @@ class _ResultScreenState extends ConsumerState<ResultScreen>
   @override
   void initState() {
     super.initState();
+
+    if (widget.phrase != null) {
+      _saved = true;
+      _customResult = TranslationResult(
+        englishText: widget.phrase!.englishText,
+        germanInformal: widget.phrase!.germanInformal,
+        germanFormal: widget.phrase!.germanFormal,
+        wordGloss: widget.phrase!.wordGloss,
+        grammarNote: widget.phrase!.grammarNote,
+        alternatePhrasing: widget.phrase!.alternatePhrasing,
+        audioFilePath: widget.phrase!.cachedAudioPath,
+      );
+    }
 
     _transcriptCtrl = AnimationController(
       vsync: this,
@@ -111,9 +127,15 @@ class _ResultScreenState extends ConsumerState<ResultScreen>
 
   @override
   Widget build(BuildContext context) {
-    final pipeline = ref.watch(pipelineProvider);
-    final result = pipeline.result;
     final settings = ref.watch(settingsProvider).valueOrNull;
+    final TranslationResult? result;
+
+    if (widget.phrase != null) {
+      result = _customResult;
+    } else {
+      final pipeline = ref.watch(pipelineProvider);
+      result = pipeline.result;
+    }
 
     // Initialize formal from settings default
     if (result != null && !_animationStarted) {
@@ -126,6 +148,11 @@ class _ResultScreenState extends ConsumerState<ResultScreen>
     final targetPhrase =
         _useFormal ? (result?.germanFormal ?? '') : (result?.germanInformal ?? '');
 
+    final pipeline = widget.phrase != null ? null : ref.watch(pipelineProvider);
+    final isLoading = pipeline?.isLoading ?? false;
+    final isError = pipeline?.stage == PipelineStage.error;
+    final stageLabel = pipeline?.stageLabel ?? '';
+
     return Scaffold(
       backgroundColor: AppColors.paper,
       appBar: AppBar(
@@ -134,18 +161,20 @@ class _ResultScreenState extends ConsumerState<ResultScreen>
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: AppColors.ink),
           onPressed: () {
-            ref.read(pipelineProvider.notifier).reset();
+            if (widget.phrase == null) {
+              ref.read(pipelineProvider.notifier).reset();
+            }
             Navigator.of(context).pop();
           },
         ),
-        title: pipeline.isLoading
-            ? StageLabel(label: pipeline.stageLabel)
+        title: isLoading
+            ? StageLabel(label: stageLabel)
             : null,
       ),
-      body: pipeline.stage == PipelineStage.error
-          ? _buildError(pipeline)
+      body: isError
+          ? _buildError(pipeline!)
           : result == null
-              ? _buildLoading(pipeline)
+              ? _buildLoading(pipeline!)
               : _buildResult(context, result, targetPhrase),
     );
   }
