@@ -27,6 +27,7 @@ class _PracticeScreenState extends ConsumerState<PracticeScreen> {
   String? _errorMessage;
   List<_WordMatch>? _matches;
   double? _score;
+  String? _attemptText;
 
   @override
   void dispose() {
@@ -150,6 +151,18 @@ class _PracticeScreenState extends ConsumerState<PracticeScreen> {
 
                 const SizedBox(height: 24),
 
+                if (_attemptText != null && _attemptText!.isNotEmpty) ...[
+                  Text(
+                    'We heard: "$_attemptText"',
+                    style: AppTextStyles.body(
+                      size: 14,
+                      color: AppColors.inkMuted,
+                    ).copyWith(fontStyle: FontStyle.italic),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 20),
+                ],
+
                 // Try again button
                 TextButton(
                   onPressed: _resetPractice,
@@ -228,6 +241,7 @@ class _PracticeScreenState extends ConsumerState<PracticeScreen> {
         _isProcessing = false;
         _matches = matches;
         _score = score;
+        _attemptText = transcript;
       });
     } on HFApiException catch (e) {
       setState(() {
@@ -242,23 +256,64 @@ class _PracticeScreenState extends ConsumerState<PracticeScreen> {
     }
   }
 
-  /// Word-level edit distance comparison.
+  String _cleanWord(String w) {
+    return w
+        .toLowerCase()
+        .replaceAll('ß', 'ss')
+        .replaceAll('ä', 'ae')
+        .replaceAll('ö', 'oe')
+        .replaceAll('ü', 'ue');
+  }
+
+  /// LCS-aligned word matching to support missing/added words.
   List<_WordMatch> _compareTranscript(String attempt, String target) {
     final attemptWords = _normalize(attempt);
     final targetWords = _normalize(target);
 
+    final attemptClean = attemptWords.map(_cleanWord).toList();
+    final targetClean = targetWords.map(_cleanWord).toList();
+
+    final n = targetClean.length;
+    final m = attemptClean.length;
+    final dp = List.generate(n + 1, (_) => List.filled(m + 1, 0));
+
+    for (int i = 1; i <= n; i++) {
+      for (int j = 1; j <= m; j++) {
+        if (_wordsSimilar(attemptClean[j - 1], targetClean[i - 1])) {
+          dp[i][j] = dp[i - 1][j - 1] + 1;
+        } else {
+          dp[i][j] = dp[i - 1][j] > dp[i][j - 1] ? dp[i - 1][j] : dp[i][j - 1];
+        }
+      }
+    }
+
+    final matchedTargetIndices = <int>{};
+    int i = n;
+    int j = m;
+    while (i > 0 && j > 0) {
+      if (_wordsSimilar(attemptClean[j - 1], targetClean[i - 1])) {
+        matchedTargetIndices.add(i - 1);
+        i--;
+        j--;
+      } else if (dp[i - 1][j] >= dp[i][j - 1]) {
+        i--;
+      } else {
+        j--;
+      }
+    }
+
     return targetWords.asMap().entries.map((entry) {
-      final i = entry.key;
+      final idx = entry.key;
       final word = entry.value;
-      final matched = i < attemptWords.length &&
-          _wordsSimilar(attemptWords[i], word);
+      final matched = matchedTargetIndices.contains(idx);
       return _WordMatch(word: word, matched: matched);
     }).toList();
   }
 
   List<String> _normalize(String s) => s
       .toLowerCase()
-      .replaceAll(RegExp(r'[^\w\s]'), '')
+      // Preserve German umlauts and eszett while removing punctuation
+      .replaceAll(RegExp(r'[^\w\säöüÄÖÜß]'), '')
       .split(RegExp(r'\s+'))
       .where((w) => w.isNotEmpty)
       .toList();
@@ -295,6 +350,7 @@ class _PracticeScreenState extends ConsumerState<PracticeScreen> {
     setState(() {
       _matches = null;
       _score = null;
+      _attemptText = null;
       _errorMessage = null;
     });
   }
