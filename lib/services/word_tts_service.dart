@@ -7,6 +7,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:path_provider/path_provider.dart';
 import 'hugging_face_service.dart';
+import '../providers/settings_provider.dart';
 
 /// Plays a single German word.
 /// If a Hugging Face token is set: calls mms-tts-deu, caches the WAV file in
